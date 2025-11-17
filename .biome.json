@@ -1,0 +1,21 @@
+{
+	"$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "space",
+		"lineWidth": 100
+	},
+	"organizeImports": {
+		"enabled": true
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true
+		}
+	},
+	"files": {
+		"include": ["frontend/src/**/*", "api/src/**/*"],
+		"ignore": ["**/node_modules/**", "**/dist/**", "**/build/**"]
+	}
+}
