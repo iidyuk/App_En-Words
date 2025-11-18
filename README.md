@@ -1,8 +1,6 @@
 React+TypeScript  
 Hono
 
-Docker
-
 Prisma
 
 AWS  
