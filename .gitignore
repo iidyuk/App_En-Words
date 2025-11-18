@@ -8,3 +8,5 @@ api/dist/
 npm-debug.log*
 .env
 *.env
+
+memo.txt
