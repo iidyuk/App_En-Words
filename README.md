@@ -7,5 +7,5 @@ Prisma
 
 AWS  
  -front S3 + CloudFront  
- -api api/Dockerfile を使って ECS (Fargate) にデプロイ  
+ -api ECS (Fargate)  
  -db RDS for PostgreSQL
