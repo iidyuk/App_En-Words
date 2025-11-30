@@ -83,6 +83,8 @@ const loadWordListFromCsv = (): SeedWord[] => {
 
 const main = async () => {
 	const listWords = loadWordListFromCsv();
+	const firstHalf = listWords.slice(0, 50);
+	const secondHalf = listWords.slice(50, 100);
 
 	const groupSeeds = [
 		{
@@ -94,6 +96,7 @@ const main = async () => {
 				{ wordEn: "goodbye", jp: ["さようなら"] },
 				{ wordEn: "friend", jp: ["友達"] },
 				{ wordEn: "study", jp: ["学ぶ", "勉強する"] },
+				...firstHalf,
 			],
 		},
 		{
@@ -106,17 +109,9 @@ const main = async () => {
 				{ wordEn: "hotel", jp: ["ホテル"] },
 				{ wordEn: "breakfast", jp: ["朝食"] },
 				{ wordEn: "map", jp: ["地図"] },
+				...secondHalf,
 			],
 		},
-		...(listWords.length
-			? [
-					{
-						name: "List 1-100",
-						sortOrder: 3,
-						words: listWords,
-					},
-				]
-			: []),
 	] as const;
 
 	const groupRecords = await Promise.all(
