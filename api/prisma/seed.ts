@@ -1,6 +1,10 @@
 import { PrismaClient } from "@prisma/client";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const prisma = new PrismaClient();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const ensureUserWordCheck = async (userId: bigint, wordId: bigint) => {
 	const alreadyExists = await prisma.userWordCheck.findFirst({
@@ -30,7 +34,56 @@ const ensureQuizLog = async (
 	}
 };
 
+type SeedWord = { wordEn: string; jp: string[] };
+
+const parseTranslations = (raw: string): string[] =>
+	raw
+		.split(/[、／/，,]/)
+		.map((entry) => entry.trim())
+		.filter(Boolean);
+
+const loadWordListFromCsv = (): SeedWord[] => {
+	const csvPath = path.resolve(__dirname, "../../docs/word_list_1-100.csv");
+
+	if (!existsSync(csvPath)) {
+		console.warn(
+			`word_list_1-100.csv not found at ${csvPath}. Skipping word_list import.`,
+		);
+		return [];
+	}
+
+	const lines = readFileSync(csvPath, "utf-8")
+		.split("\n")
+		.map((line) => line.trim())
+		.filter(Boolean);
+
+	const words: SeedWord[] = [];
+
+	for (const line of lines) {
+		const cleaned = line.replace(/^\uFEFF/, "");
+		if (!cleaned.includes(",")) continue;
+
+		const [english, ...rest] = cleaned.split(",");
+		const meaningRaw = rest.join(",").replace(/^"(.*)"$/, "$1").trim();
+
+		if (!english || !meaningRaw) continue;
+
+		const jpList = parseTranslations(meaningRaw);
+
+		if (!jpList.length) continue;
+
+		words.push({
+			wordEn: english.trim(),
+			jp: jpList,
+		});
+	}
+
+	return words;
+};
+
 const main = async () => {
+	const listWords = loadWordListFromCsv();
+
 	const groupSeeds = [
 		{
 			name: "Basics",
@@ -55,6 +108,15 @@ const main = async () => {
 				{ wordEn: "map", jp: ["地図"] },
 			],
 		},
+		...(listWords.length
+			? [
+					{
+						name: "List 1-100",
+						sortOrder: 3,
+						words: listWords,
+					},
+				]
+			: []),
 	] as const;
 
 	const groupRecords = await Promise.all(
