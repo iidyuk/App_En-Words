@@ -9,7 +9,7 @@ import {
 import type { Word } from "../types/word";
 import { useWords } from "../hooks/useWords";
 
-type QuizStatus = "idle" | "in_progress" | "completed" | "stopped";
+type QuizStatus = "idle" | "in_progress" | "completed";
 
 type Option = {
 	id: string;
@@ -23,6 +23,8 @@ type QuizState = {
 	status: "idle" | "correct" | "incorrect";
 	selectedId: string | null;
 };
+
+type Attempt = { wordId: string; isCorrect: boolean };
 
 type QuizSessionContextValue = {
 	words: Word[];
@@ -66,6 +68,7 @@ export function QuizSessionProvider({ children }: { children: ReactNode }) {
 	const [activePool, setActivePool] = useState<Word[]>([]);
 	const [, setDeck] = useState<Word[]>([]);
 	const [quiz, setQuiz] = useState<QuizState | null>(null);
+	const [attempts, setAttempts] = useState<Attempt[]>([]);
 
 	const groupOptions = useMemo(() => {
 		const groups = new Map<string, { id: string; name: string; count: number }>();
@@ -90,12 +93,65 @@ export function QuizSessionProvider({ children }: { children: ReactNode }) {
 		return words.filter((word) => word.groupId === selectedGroupId);
 	}, [words, selectedGroupId]);
 
+	const resetState = useCallback(() => {
+		setStatus("idle");
+		setQuiz(null);
+		setDeck([]);
+		setActivePool([]);
+		setAttempts([]);
+	}, []);
+
+	const logAttempts = useCallback(
+		async (entries: Attempt[]) => {
+			if (!entries.length) return true;
+
+			const apiBase = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "");
+			const endpoint = apiBase ? `${apiBase}/quiz-logs` : "/quiz-logs";
+
+			const response = await fetch(endpoint, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					results: entries.map((attempt) => ({
+						wordId: attempt.wordId,
+						isCorrect: attempt.isCorrect,
+					})),
+				}),
+			});
+
+			if (!response.ok) {
+				throw new Error(`Failed to record results (${response.status})`);
+			}
+
+			return true;
+		},
+		[],
+	);
+
+	const finalizeRun = useCallback(
+		async () => {
+			try {
+				await logAttempts(attempts);
+			} catch (err) {
+				const proceed = window.confirm(
+					"結果を記録できませんでした（オフラインの可能性があります）。スタート画面に戻りますか？",
+				);
+				if (!proceed) {
+					return;
+				}
+			}
+			resetState();
+		},
+		[attempts, logAttempts, resetState],
+	);
+
 	const start = useCallback(() => {
 		if (!filteredWords.length) {
 			setStatus("completed");
 			setQuiz(null);
 			setDeck([]);
 			setActivePool([]);
+			setAttempts([]);
 			return;
 		}
 
@@ -110,26 +166,33 @@ export function QuizSessionProvider({ children }: { children: ReactNode }) {
 			status: "idle",
 			selectedId: null,
 		});
+		setAttempts([]);
 		setStatus("in_progress");
 	}, [filteredWords]);
 
-	const choose = useCallback((option: Option) => {
-		setQuiz((prev) => {
-			if (!prev || status !== "in_progress") return prev;
-			if (prev.status !== "idle") return prev;
-			return {
-				...prev,
-				status: option.isCorrect ? "correct" : "incorrect",
-				selectedId: option.id,
-			};
-		});
-	}, [status]);
+	const choose = useCallback(
+		(option: Option) => {
+			setQuiz((prev) => {
+				if (!prev || status !== "in_progress") return prev;
+				if (prev.status !== "idle") return prev;
+				setAttempts((current) => [
+					...current,
+					{ wordId: prev.word.id, isCorrect: option.isCorrect },
+				]);
+				return {
+					...prev,
+					status: option.isCorrect ? "correct" : "incorrect",
+					selectedId: option.id,
+				};
+			});
+		},
+		[status],
+	);
 
 	const next = useCallback(() => {
 		setDeck((prevDeck) => {
 			if (prevDeck.length === 0) {
-				setQuiz(null);
-				setStatus("completed");
+				void finalizeRun();
 				return [];
 			}
 
@@ -142,14 +205,15 @@ export function QuizSessionProvider({ children }: { children: ReactNode }) {
 			});
 			return rest;
 		});
-	}, [activePool]);
+	}, [activePool, finalizeRun]);
 
 	const stop = useCallback(() => {
-		setStatus("idle");
-		setQuiz(null);
-		setDeck([]);
-		setActivePool([]);
-	}, []);
+		if (status !== "in_progress") {
+			resetState();
+			return;
+		}
+		void finalizeRun();
+	}, [status, finalizeRun, resetState]);
 
 	const value = useMemo(
 		() => ({

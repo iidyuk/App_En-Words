@@ -61,14 +61,6 @@ export function QuizPage() {
 					>
 						スタート
 					</button>
-					{status === "completed" && (
-						<p className="text-center text-sm text-slate-500">
-							選択したグループの出題が終了しました。
-						</p>
-					)}
-					{status === "stopped" && (
-						<p className="text-center text-sm text-slate-500">中断中です。</p>
-					)}
 					{!groupOptions.length && (
 						<p className="text-center text-sm text-slate-500">
 							表示できるグループがありません。

@@ -82,6 +82,43 @@ app.get("/words", async (c) => {
 	return c.json({ words: serialized });
 });
 
+app.post("/quiz-logs", async (c) => {
+	const body = await c.req.json().catch(() => null);
+	if (!body || !Array.isArray(body.results)) {
+		return c.json({ message: "Invalid payload" }, 400);
+	}
+
+	const entries = body.results
+		.map((item: { wordId?: string | number; isCorrect?: boolean }) => {
+			if (item.wordId === undefined || typeof item.isCorrect !== "boolean") {
+				return null;
+			}
+
+			try {
+				const wordIdBigInt = BigInt(item.wordId);
+				return { wordId: wordIdBigInt, isCorrect: item.isCorrect };
+			} catch {
+				return null;
+			}
+		})
+		.filter(Boolean) as { wordId: bigint; isCorrect: boolean }[];
+
+	if (!entries.length) {
+		return c.json({ message: "No valid quiz results to record." }, 400);
+	}
+
+	await prisma.quizAnswerLog.createMany({
+		data: entries.map((entry) => ({
+			wordId: entry.wordId,
+			// ユーザー未実装のため仮ユーザーID: 1 として記録
+			userId: BigInt(1),
+			isCorrect: entry.isCorrect,
+		})),
+	});
+
+	return c.json({ recorded: entries.length }, 201);
+});
+
 const port = Number(process.env.PORT) || 8787;
 
 console.log(`🚀 Hono API is running at http://localhost:${port}`);
