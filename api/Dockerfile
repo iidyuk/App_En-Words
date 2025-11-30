@@ -8,10 +8,10 @@ RUN npm install
 FROM deps AS build
 COPY tsconfig.json tsconfig.json
 COPY prisma prisma
+RUN npx prisma generate
 COPY src src
 ENV DATABASE_URL="postgresql://postgres:postgres@db:5432/enwords?schema=public"
 RUN npm run build
-RUN npx prisma generate
 RUN npm prune --omit=dev
 
 FROM node:20.14.0-slim AS production

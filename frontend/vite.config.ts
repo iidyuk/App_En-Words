@@ -4,4 +4,12 @@ import { defineConfig } from "vite";
 // https://vite.dev/config/
 export default defineConfig({
 	plugins: [react()],
+	server: {
+		proxy: {
+			"/words": {
+				target: "http://localhost:8787",
+				changeOrigin: true,
+			},
+		},
+	},
 });
