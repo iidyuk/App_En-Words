@@ -25,6 +25,13 @@ app.get("/health", (c) =>
 app.get("/words", async (c) => {
 	const words = await prisma.word.findMany({
 		orderBy: { createdAt: "desc" },
+		include: {
+			wordGroup: true,
+			jpTranslations: true,
+			posLinks: {
+				include: { partOfSpeech: true },
+			},
+		},
 	});
 
 	return c.json({ words });
