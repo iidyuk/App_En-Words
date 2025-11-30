@@ -9,6 +9,7 @@ type ApiWord = {
 		id: number | string | null;
 		name: string | null;
 	};
+	checked?: boolean;
 };
 
 export function useWords() {
@@ -53,6 +54,7 @@ export function useWords() {
 							? String(word.wordGroup.id)
 							: undefined,
 						groupName: word.wordGroup?.name ?? undefined,
+						checked: Boolean(word.checked),
 					};
 				})
 				.filter(Boolean) as Word[];

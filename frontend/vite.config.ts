@@ -18,6 +18,10 @@ export default defineConfig({
 				target: "http://localhost:8787",
 				changeOrigin: true,
 			},
+			"/word-checks": {
+				target: "http://localhost:8787",
+				changeOrigin: true,
+			},
 		},
 	},
 });

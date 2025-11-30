@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useWords } from "../../hooks/useWords";
 import { useQuizStats } from "../../hooks/useQuizStats";
 import { WordTable } from "./components/WordTable";
@@ -37,6 +37,15 @@ export function AdminPage() {
 		selectedGroupId === "all"
 			? "すべて"
 			: groupOptions.find((g) => g.id === selectedGroupId)?.name ?? selectedGroupId;
+	const [showScrollTop, setShowScrollTop] = useState(false);
+
+	useEffect(() => {
+		const onScroll = () => {
+			setShowScrollTop(window.scrollY > 200);
+		};
+		window.addEventListener("scroll", onScroll, { passive: true });
+		return () => window.removeEventListener("scroll", onScroll);
+	}, []);
 
 	return (
 		<div className="mx-auto max-w-4xl rounded-3xl bg-white p-6 shadow-lg ring-1 ring-slate-100">
@@ -89,6 +98,15 @@ export function AdminPage() {
 
 			{!isLoading && !error && !isLoadingStats && !statsError && (
 				<WordTable words={filteredWords} stats={stats} />
+			)}
+			{showScrollTop && (
+				<button
+					type="button"
+					onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+					className="fixed bottom-6 right-6 rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800"
+				>
+					▲ ページ上部へ
+				</button>
 			)}
 		</div>
 	);

@@ -4,4 +4,5 @@ export type Word = {
 	meaning: string;
 	groupId?: string;
 	groupName?: string;
+	checked?: boolean;
 };

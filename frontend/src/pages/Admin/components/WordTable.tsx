@@ -21,6 +21,7 @@ export function WordTable({ words, stats = [] }: Props) {
 						<th className="px-4 py-2">日本語</th>
 						<th className="px-4 py-2 text-right">正解</th>
 						<th className="px-4 py-2 text-right">不正解</th>
+						<th className="px-4 py-2 text-center">チェック</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -38,6 +39,9 @@ export function WordTable({ words, stats = [] }: Props) {
 							</td>
 							<td className="px-4 py-3 text-right text-rose-700">
 								{formatCount(statMap.get(word.id)?.incorrect)}
+							</td>
+							<td className="px-4 py-3 text-center">
+								{word.checked ? "✔︎" : ""}
 							</td>
 						</tr>
 					))}

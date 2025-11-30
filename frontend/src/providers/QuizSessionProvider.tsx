@@ -3,6 +3,8 @@ import {
 	useCallback,
 	useContext,
 	useMemo,
+	useEffect,
+	useRef,
 	useState,
 	type ReactNode,
 } from "react";
@@ -36,6 +38,9 @@ type QuizSessionContextValue = {
 	setSelectedGroupId: (value: string) => void;
 	status: QuizStatus;
 	quiz: QuizState | null;
+	progress: { current: number; total: number } | null;
+	checkedSet: Set<string>;
+	toggleCheck: (wordId: string, checked: boolean) => void;
 	start: () => void;
 	choose: (option: Option) => void;
 	next: () => void;
@@ -69,6 +74,13 @@ export function QuizSessionProvider({ children }: { children: ReactNode }) {
 	const [, setDeck] = useState<Word[]>([]);
 	const [quiz, setQuiz] = useState<QuizState | null>(null);
 	const [attempts, setAttempts] = useState<Attempt[]>([]);
+	const [progress, setProgress] = useState<{ current: number; total: number } | null>(
+		null,
+	);
+	const [isRecording, setIsRecording] = useState(false);
+	const hasRecordedRef = useRef(false);
+	const [checkedSet, setCheckedSet] = useState<Set<string>>(new Set());
+	const initializedChecksRef = useRef(false);
 
 	const groupOptions = useMemo(() => {
 		const groups = new Map<string, { id: string; name: string; count: number }>();
@@ -99,6 +111,31 @@ export function QuizSessionProvider({ children }: { children: ReactNode }) {
 		setDeck([]);
 		setActivePool([]);
 		setAttempts([]);
+		setProgress(null);
+		setIsRecording(false);
+		hasRecordedRef.current = false;
+	}, []);
+
+	useEffect(() => {
+		if (initializedChecksRef.current) return;
+		if (!words.length) return;
+		const initial = new Set(
+			words.filter((w) => w.checked).map((w) => w.id),
+		);
+		setCheckedSet(initial);
+		initializedChecksRef.current = true;
+	}, [words]);
+
+	const toggleCheck = useCallback((wordId: string, checked: boolean) => {
+		setCheckedSet((prev) => {
+			const next = new Set(prev);
+			if (checked) {
+				next.add(wordId);
+			} else {
+				next.delete(wordId);
+			}
+			return next;
+		});
 	}, []);
 
 	const logAttempts = useCallback(
@@ -132,6 +169,11 @@ export function QuizSessionProvider({ children }: { children: ReactNode }) {
 		async (options?: { skipLogging?: boolean }) => {
 			const shouldLog = !options?.skipLogging;
 			if (shouldLog) {
+				if (hasRecordedRef.current || isRecording) {
+					return;
+				}
+				hasRecordedRef.current = true;
+				setIsRecording(true);
 				try {
 					await logAttempts(attempts);
 				} catch (err) {
@@ -139,13 +181,32 @@ export function QuizSessionProvider({ children }: { children: ReactNode }) {
 						"結果を記録できませんでした（オフラインの可能性があります）。スタート画面に戻りますか？",
 					);
 					if (!proceed) {
+						setIsRecording(false);
+						hasRecordedRef.current = false;
 						return;
 					}
+				}
+				setIsRecording(false);
+			}
+			if (shouldLog) {
+				try {
+					const apiBase = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "");
+					const endpoint = apiBase ? `${apiBase}/word-checks` : "/word-checks";
+					const payload = {
+						checkedWordIds: Array.from(checkedSet),
+					};
+					await fetch(endpoint, {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify(payload),
+					});
+				} catch (err) {
+					console.error("Failed to save word checks", err);
 				}
 			}
 			resetState();
 		},
-		[attempts, logAttempts, resetState],
+		[attempts, isRecording, logAttempts, resetState, checkedSet],
 	);
 
 	const start = useCallback(() => {
@@ -170,18 +231,43 @@ export function QuizSessionProvider({ children }: { children: ReactNode }) {
 			selectedId: null,
 		});
 		setAttempts([]);
+		setProgress({ current: 1, total: shuffled.length });
 		setStatus("in_progress");
 	}, [filteredWords]);
 
+	// const choose = useCallback(
+	// 	(option: Option) => {
+	// 		setQuiz((prev) => {
+	// 			if (!prev || status !== "in_progress") return prev;
+	// 			if (prev.status !== "idle") return prev;
+	// 			setAttempts((current) => [
+	// 				...current,
+	// 				{ wordId: prev.word.id, isCorrect: option.isCorrect },
+	// 			]);
+	// 			return {
+	// 				...prev,
+	// 				status: option.isCorrect ? "correct" : "incorrect",
+	// 				selectedId: option.id,
+	// 			};
+	// 		});
+	// 	},
+	// 	[status],
+	// );
 	const choose = useCallback(
 		(option: Option) => {
+			if (status !== "in_progress" || !quiz || quiz.status !== "idle") {
+				return;
+			}
+
+			setAttempts((current) => [
+				...current,
+				{ wordId: quiz.word.id, isCorrect: option.isCorrect },
+			]);
+
 			setQuiz((prev) => {
-				if (!prev || status !== "in_progress") return prev;
-				if (prev.status !== "idle") return prev;
-				setAttempts((current) => [
-					...current,
-					{ wordId: prev.word.id, isCorrect: option.isCorrect },
-				]);
+				if (!prev || prev.status !== "idle" || prev.word.id !== quiz.word.id) {
+					return prev;
+				}
 				return {
 					...prev,
 					status: option.isCorrect ? "correct" : "incorrect",
@@ -189,7 +275,7 @@ export function QuizSessionProvider({ children }: { children: ReactNode }) {
 				};
 			});
 		},
-		[status],
+		[status, quiz],
 	);
 
 	const next = useCallback(() => {
@@ -205,6 +291,11 @@ export function QuizSessionProvider({ children }: { children: ReactNode }) {
 				options: createOptions(nextWord, activePool.length ? activePool : prevDeck),
 				status: "idle",
 				selectedId: null,
+			});
+			setProgress((prev) => {
+				if (!prev) return prev;
+				const current = prev.total - rest.length;
+				return { ...prev, current };
 			});
 			return rest;
 		});
@@ -233,10 +324,13 @@ export function QuizSessionProvider({ children }: { children: ReactNode }) {
 			setSelectedGroupId,
 			status,
 			quiz,
+			progress,
 			start,
 			choose,
 			next,
 			stop,
+			checkedSet,
+			toggleCheck,
 		}),
 		[
 			words,

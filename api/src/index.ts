@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { serve } from "@hono/node-server";
-import type { Prisma } from "@prisma/client";
+import type { Prisma, UserWordCheck } from "@prisma/client";
 import { PrismaClient } from "@prisma/client";
 import { Hono } from "hono";
 
@@ -19,9 +19,11 @@ type WordWithRelations = Prisma.WordGetPayload<{
 		posLinks: {
 			include: { partOfSpeech: true };
 		};
+		wordChecks: true;
 	};
 }>;
 const app = new Hono();
+const DEFAULT_USER_ID = BigInt(1);
 
 app.get("/", (c) => c.json({ message: "Hello from the en-words API" }));
 
@@ -41,6 +43,7 @@ app.get("/words", async (c) => {
 			posLinks: {
 				include: { partOfSpeech: true },
 			},
+			wordChecks: true,
 		},
 	})) as WordWithRelations[];
 
@@ -75,6 +78,9 @@ app.get("/words", async (c) => {
 					: null,
 			}),
 		),
+		checked: word.wordChecks.some(
+			(check: UserWordCheck) => check.userId === DEFAULT_USER_ID,
+		),
 		createdAt: word.createdAt.toISOString(),
 		updatedAt: word.updatedAt.toISOString(),
 	}));
@@ -83,29 +89,25 @@ app.get("/words", async (c) => {
 });
 
 app.get("/quiz-stats", async (c) => {
-	const logs = await prisma.quizAnswerLog.findMany({
-		select: { wordId: true, isCorrect: true },
-	});
+	const rows = (await prisma.$queryRaw<
+		{ wordId: bigint; correct: bigint; incorrect: bigint }[]
+	>`SELECT word_id AS "wordId",
+        SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) AS "correct",
+        SUM(CASE WHEN NOT is_correct THEN 1 ELSE 0 END) AS "incorrect"
+      FROM quiz_answer_logs
+      GROUP BY word_id`) as {
+		wordId: bigint;
+		correct: bigint;
+		incorrect: bigint;
+	}[];
 
-	const counts = new Map<
-		string,
-		{ wordId: string; correct: number; incorrect: number }
-	>();
+	const stats = rows.map((row) => ({
+		wordId: row.wordId.toString(),
+		correct: Number(row.correct),
+		incorrect: Number(row.incorrect),
+	}));
 
-	for (const log of logs) {
-		const key = log.wordId.toString();
-		if (!counts.has(key)) {
-			counts.set(key, { wordId: key, correct: 0, incorrect: 0 });
-		}
-		const entry = counts.get(key)!;
-		if (log.isCorrect) {
-			entry.correct += 1;
-		} else {
-			entry.incorrect += 1;
-		}
-	}
-
-	return c.json({ stats: Array.from(counts.values()) });
+	return c.json({ stats });
 });
 
 app.post("/quiz-logs", async (c) => {
@@ -137,12 +139,67 @@ app.post("/quiz-logs", async (c) => {
 		data: entries.map((entry) => ({
 			wordId: entry.wordId,
 			// ユーザー未実装のため仮ユーザーID: 1 として記録
-			userId: BigInt(1),
+			userId: DEFAULT_USER_ID,
 			isCorrect: entry.isCorrect,
 		})),
 	});
 
 	return c.json({ recorded: entries.length }, 201);
+});
+
+app.post("/word-checks", async (c) => {
+	const body = await c.req.json().catch(() => null);
+	if (!body || !Array.isArray(body.checkedWordIds)) {
+		return c.json({ message: "Invalid payload" }, 400);
+	}
+
+	const parsedIds = body.checkedWordIds
+		.map((id: string | number | null) => {
+			if (id === null || id === undefined) return null;
+			try {
+				return BigInt(id);
+			} catch {
+				return null;
+			}
+		})
+		.filter(Boolean) as bigint[];
+
+	const uniqueIds = Array.from(new Set(parsedIds));
+
+	const existing = await prisma.userWordCheck.findMany({
+		where: { userId: DEFAULT_USER_ID },
+	});
+
+	const existingSet = new Set(existing.map((row) => row.wordId.toString()));
+	const targetSet = new Set(uniqueIds.map((id) => id.toString()));
+
+	const toAdd = uniqueIds.filter((id) => !existingSet.has(id.toString()));
+	const toRemove = existing.filter((row) => !targetSet.has(row.wordId.toString()));
+
+	if (toAdd.length > 0) {
+		await prisma.userWordCheck.createMany({
+			data: toAdd.map((wordId) => ({
+				userId: DEFAULT_USER_ID,
+				wordId,
+			})),
+			skipDuplicates: true,
+		});
+	}
+
+	if (toRemove.length > 0) {
+		await prisma.userWordCheck.deleteMany({
+			where: {
+				userId: DEFAULT_USER_ID,
+				wordId: { in: toRemove.map((row) => row.wordId) },
+			},
+		});
+	}
+
+	return c.json({
+		added: toAdd.length,
+		removed: toRemove.length,
+		total: targetSet.size,
+	});
 });
 
 const port = Number(process.env.PORT) || 8787;
