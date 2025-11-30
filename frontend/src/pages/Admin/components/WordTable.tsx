@@ -1,10 +1,17 @@
 import type { Word } from "../../../types/word";
+import type { QuizStat } from "../../../hooks/useQuizStats";
+
+const formatCount = (count: number | undefined) =>
+	typeof count === "number" ? count : 0;
 
 type Props = {
 	words: Word[];
+	stats?: QuizStat[];
 };
 
-export function WordTable({ words }: Props) {
+export function WordTable({ words, stats = [] }: Props) {
+	const statMap = new Map(stats.map((s) => [s.wordId, s]));
+
 	return (
 		<div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
 			<table className="min-w-full text-left text-sm">
@@ -12,6 +19,8 @@ export function WordTable({ words }: Props) {
 					<tr>
 						<th className="px-4 py-2">英単語</th>
 						<th className="px-4 py-2">日本語</th>
+						<th className="px-4 py-2 text-right">正解</th>
+						<th className="px-4 py-2 text-right">不正解</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -24,6 +33,12 @@ export function WordTable({ words }: Props) {
 								{word.term}
 							</td>
 							<td className="px-4 py-3 text-slate-700">{word.meaning}</td>
+							<td className="px-4 py-3 text-right text-emerald-700">
+								{formatCount(statMap.get(word.id)?.correct)}
+							</td>
+							<td className="px-4 py-3 text-right text-rose-700">
+								{formatCount(statMap.get(word.id)?.incorrect)}
+							</td>
 						</tr>
 					))}
 				</tbody>

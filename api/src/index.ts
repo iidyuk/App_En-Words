@@ -82,6 +82,32 @@ app.get("/words", async (c) => {
 	return c.json({ words: serialized });
 });
 
+app.get("/quiz-stats", async (c) => {
+	const logs = await prisma.quizAnswerLog.findMany({
+		select: { wordId: true, isCorrect: true },
+	});
+
+	const counts = new Map<
+		string,
+		{ wordId: string; correct: number; incorrect: number }
+	>();
+
+	for (const log of logs) {
+		const key = log.wordId.toString();
+		if (!counts.has(key)) {
+			counts.set(key, { wordId: key, correct: 0, incorrect: 0 });
+		}
+		const entry = counts.get(key)!;
+		if (log.isCorrect) {
+			entry.correct += 1;
+		} else {
+			entry.incorrect += 1;
+		}
+	}
+
+	return c.json({ stats: Array.from(counts.values()) });
+});
+
 app.post("/quiz-logs", async (c) => {
 	const body = await c.req.json().catch(() => null);
 	if (!body || !Array.isArray(body.results)) {
