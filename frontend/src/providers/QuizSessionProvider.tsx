@@ -39,7 +39,7 @@ type QuizSessionContextValue = {
 	start: () => void;
 	choose: (option: Option) => void;
 	next: () => void;
-	stop: () => void;
+	stop: (recordResults: boolean) => void;
 };
 
 const QuizSessionContext = createContext<QuizSessionContextValue | null>(null);
@@ -210,13 +210,12 @@ export function QuizSessionProvider({ children }: { children: ReactNode }) {
 		});
 	}, [activePool, finalizeRun]);
 
-	const stop = useCallback(() => {
+	const stop = useCallback((recordResults: boolean) => {
 		if (status !== "in_progress") {
 			resetState();
 			return;
 		}
-		const shouldLog = window.confirm("結果を記録しますか？（はい／いいえ）");
-		if (shouldLog) {
+		if (recordResults) {
 			void finalizeRun();
 		} else {
 			resetState();

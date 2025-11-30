@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { OptionButton } from "./components/OptionButton";
 import { useQuizSession } from "../../providers/QuizSessionProvider";
 
@@ -16,6 +17,7 @@ export function QuizPage() {
 		error,
 		fetchWords,
 	} = useQuizSession();
+	const [showStopConfirm, setShowStopConfirm] = useState(false);
 
 	return (
 		<div className="mx-auto max-w-xl rounded-3xl bg-white p-6 shadow-lg ring-1 ring-slate-100">
@@ -114,12 +116,47 @@ export function QuizPage() {
 
 					<button
 						type="button"
-						onClick={() => stop()}
+						onClick={() => setShowStopConfirm(true)}
 						className="mt-6 w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
 					>
 						中断する
 					</button>
 				</>
+			)}
+
+			{showStopConfirm && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+					<div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-lg ring-1 ring-slate-200">
+						<p className="text-sm font-semibold text-slate-900">
+							結果を記録しますか？
+						</p>
+						<p className="mt-2 text-sm text-slate-600">
+							「はい」で結果を保存し、「いいえ」で保存せずに中断します。
+						</p>
+						<div className="mt-4 flex justify-end gap-2">
+							<button
+								type="button"
+								onClick={() => {
+									setShowStopConfirm(false);
+									stop(false);
+								}}
+								className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+							>
+								いいえ
+							</button>
+							<button
+								type="button"
+								onClick={() => {
+									setShowStopConfirm(false);
+									stop(true);
+								}}
+								className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+							>
+								はい
+							</button>
+						</div>
+					</div>
+				</div>
 			)}
 		</div>
 	);
