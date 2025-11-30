@@ -215,7 +215,7 @@ export function QuizSessionProvider({ children }: { children: ReactNode }) {
 			resetState();
 			return;
 		}
-		const shouldLog = window.confirm("結果を記録しますか？");
+		const shouldLog = window.confirm("結果を記録しますか？（はい／いいえ）");
 		if (shouldLog) {
 			void finalizeRun();
 		} else {
