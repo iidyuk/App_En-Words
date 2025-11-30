@@ -1,12 +1,8 @@
 import { useEffect, useState } from "react";
-import type { Word } from "../../types/word";
 import { useWords } from "../../hooks/useWords";
-
-type Option = {
-	id: string;
-	text: string;
-	isCorrect: boolean;
-};
+import type { Word } from "../../types/word";
+import { OptionButton } from "./components/OptionButton";
+import type { Option } from "./types";
 
 type QuizState = {
 	word: Word;
@@ -121,28 +117,15 @@ export function QuizPage() {
 							const showCorrect =
 								quiz.status === "incorrect" && option.isCorrect;
 
-							let stateClasses = "bg-slate-100 text-slate-900";
-
-							if (quiz.status === "correct" && isSelected) {
-								stateClasses = "bg-emerald-100 text-emerald-700";
-							}
-
-							if (showCorrect) {
-								stateClasses = "bg-rose-100 text-rose-700";
-							}
-
 							return (
-								<button
+								<OptionButton
 									key={option.id}
-									type="button"
-									onClick={() => choose(option)}
+									option={option}
 									disabled={disabled}
-									className={`w-full rounded-2xl px-4 py-3 text-left text-sm transition ${
-										disabled ? "cursor-default" : "hover:bg-slate-200"
-									} ${stateClasses}`}
-								>
-									{option.text}
-								</button>
+									isSelected={isSelected}
+									showCorrect={showCorrect}
+									onChoose={choose}
+								/>
 							);
 						})}
 					</div>
