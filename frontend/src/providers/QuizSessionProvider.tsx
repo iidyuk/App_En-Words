@@ -145,7 +145,7 @@ export function QuizSessionProvider({ children }: { children: ReactNode }) {
 	}, [activePool]);
 
 	const stop = useCallback(() => {
-		setStatus("stopped");
+		setStatus("idle");
 		setQuiz(null);
 		setDeck([]);
 		setActivePool([]);
