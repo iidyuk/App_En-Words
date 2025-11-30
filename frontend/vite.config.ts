@@ -10,6 +10,14 @@ export default defineConfig({
 				target: "http://localhost:8787",
 				changeOrigin: true,
 			},
+			"/quiz-logs": {
+				target: "http://localhost:8787",
+				changeOrigin: true,
+			},
+			"/quiz-stats": {
+				target: "http://localhost:8787",
+				changeOrigin: true,
+			},
 		},
 	},
 });
