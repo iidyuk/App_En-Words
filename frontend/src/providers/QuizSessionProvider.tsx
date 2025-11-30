@@ -129,15 +129,18 @@ export function QuizSessionProvider({ children }: { children: ReactNode }) {
 	);
 
 	const finalizeRun = useCallback(
-		async () => {
-			try {
-				await logAttempts(attempts);
-			} catch (err) {
-				const proceed = window.confirm(
-					"結果を記録できませんでした（オフラインの可能性があります）。スタート画面に戻りますか？",
-				);
-				if (!proceed) {
-					return;
+		async (options?: { skipLogging?: boolean }) => {
+			const shouldLog = !options?.skipLogging;
+			if (shouldLog) {
+				try {
+					await logAttempts(attempts);
+				} catch (err) {
+					const proceed = window.confirm(
+						"結果を記録できませんでした（オフラインの可能性があります）。スタート画面に戻りますか？",
+					);
+					if (!proceed) {
+						return;
+					}
 				}
 			}
 			resetState();
@@ -212,7 +215,12 @@ export function QuizSessionProvider({ children }: { children: ReactNode }) {
 			resetState();
 			return;
 		}
-		void finalizeRun();
+		const shouldLog = window.confirm("結果を記録しますか？");
+		if (shouldLog) {
+			void finalizeRun();
+		} else {
+			resetState();
+		}
 	}, [status, finalizeRun, resetState]);
 
 	const value = useMemo(
