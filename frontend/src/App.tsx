@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { NavLink } from "./components/NavLink";
 import { AdminPage } from "./pages/Admin";
 import { QuizPage } from "./pages/Quiz";
+import { QuizSessionProvider } from "./providers/QuizSessionProvider";
 
 function App() {
 	return (
@@ -23,13 +24,15 @@ function App() {
 				</div>
 			</header>
 
-			<main className="mx-auto max-w-5xl px-4 py-10">
-				<Routes>
-					<Route path="/" element={<QuizPage />} />
-					<Route path="/admin" element={<AdminPage />} />
-					<Route path="*" element={<Navigate to="/" replace />} />
-				</Routes>
-			</main>
+			<QuizSessionProvider>
+				<main className="mx-auto max-w-5xl px-4 py-10">
+					<Routes>
+						<Route path="/" element={<QuizPage />} />
+						<Route path="/admin" element={<AdminPage />} />
+						<Route path="*" element={<Navigate to="/" replace />} />
+					</Routes>
+				</main>
+			</QuizSessionProvider>
 		</div>
 	);
 }

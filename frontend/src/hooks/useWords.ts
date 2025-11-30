@@ -5,6 +5,10 @@ type ApiWord = {
 	id: number | string | null;
 	wordEn: string;
 	jpTranslations?: { wordJp: string }[];
+	wordGroup?: {
+		id: number | string | null;
+		name: string | null;
+	};
 };
 
 export function useWords() {
@@ -45,6 +49,10 @@ export function useWords() {
 						id: String(word.id ?? word.wordEn),
 						term: word.wordEn,
 						meaning,
+						groupId: word.wordGroup?.id
+							? String(word.wordGroup.id)
+							: undefined,
+						groupName: word.wordGroup?.name ?? undefined,
 					};
 				})
 				.filter(Boolean) as Word[];

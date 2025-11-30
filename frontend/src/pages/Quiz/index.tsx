@@ -1,82 +1,21 @@
-import { useEffect, useState } from "react";
-import { useWords } from "../../hooks/useWords";
-import type { Word } from "../../types/word";
 import { OptionButton } from "./components/OptionButton";
-import type { Option } from "./types";
-
-type QuizState = {
-	word: Word;
-	options: Option[];
-	status: "idle" | "correct" | "incorrect";
-	selectedId: string | null;
-};
-
-const pickRandomWord = (words: Word[]) =>
-	words[Math.floor(Math.random() * words.length)];
-
-const createOptions = (word: Word, words: Word[]): Option[] => {
-	const distractors = words
-		.filter((item) => item.id !== word.id)
-		.sort(() => Math.random() - 0.5)
-		.slice(0, 3);
-
-	const candidates = [...distractors, word].map((entry) => ({
-		id: entry.id,
-		text: entry.meaning,
-		isCorrect: entry.id === word.id,
-	}));
-
-	return candidates.sort(() => Math.random() - 0.5);
-};
-
-const createQuiz = (words: Word[]): QuizState => {
-	const word = pickRandomWord(words);
-	return {
-		word,
-		options: createOptions(word, words),
-		status: "idle",
-		selectedId: null,
-	};
-};
-
-function useQuiz(words: Word[]) {
-	const [quiz, setQuiz] = useState<QuizState | null>(null);
-
-	useEffect(() => {
-		if (!words.length) {
-			setQuiz(null);
-			return;
-		}
-		setQuiz(createQuiz(words));
-	}, [words]);
-
-	const choose = (option: Option) => {
-		setQuiz((prev) => {
-			if (!prev || prev.status !== "idle") {
-				return prev;
-			}
-
-			return {
-				...prev,
-				status: option.isCorrect ? "correct" : "incorrect",
-				selectedId: option.id,
-			};
-		});
-	};
-
-	const next = () => {
-		if (!words.length) {
-			return;
-		}
-		setQuiz(createQuiz(words));
-	};
-
-	return { quiz, choose, next };
-}
+import { useQuizSession } from "../../providers/QuizSessionProvider";
 
 export function QuizPage() {
-	const { words, isLoading, error, fetchWords } = useWords();
-	const { quiz, choose, next } = useQuiz(words);
+	const {
+		quiz,
+		choose,
+		next,
+		status,
+		start,
+		stop,
+		groupOptions,
+		selectedGroupId,
+		setSelectedGroupId,
+		isLoading,
+		error,
+		fetchWords,
+	} = useQuizSession();
 
 	return (
 		<div className="mx-auto max-w-xl rounded-3xl bg-white p-6 shadow-lg ring-1 ring-slate-100">
@@ -97,13 +36,48 @@ export function QuizPage() {
 				</div>
 			)}
 
-			{!isLoading && !error && !quiz && (
-				<p className="text-center text-sm text-slate-500">
-					表示できる問題がありません。
-				</p>
+			{!isLoading && !error && status !== "in_progress" && (
+				<div className="space-y-4">
+					<div>
+						<label className="text-sm text-slate-600">出題グループ</label>
+						<select
+							className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm shadow-sm focus:border-slate-400 focus:outline-none"
+							value={selectedGroupId}
+							onChange={(e) => setSelectedGroupId(e.target.value)}
+						>
+							<option value="all">すべて</option>
+							{groupOptions.map((group) => (
+								<option key={group.id} value={group.id}>
+									{group.name}（{group.count}）
+								</option>
+							))}
+						</select>
+					</div>
+					<button
+						type="button"
+						onClick={() => start()}
+						className="w-full rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+						disabled={isLoading}
+					>
+						スタート
+					</button>
+					{status === "completed" && (
+						<p className="text-center text-sm text-slate-500">
+							選択したグループの出題が終了しました。
+						</p>
+					)}
+					{status === "stopped" && (
+						<p className="text-center text-sm text-slate-500">中断中です。</p>
+					)}
+					{!groupOptions.length && (
+						<p className="text-center text-sm text-slate-500">
+							表示できるグループがありません。
+						</p>
+					)}
+				</div>
 			)}
 
-			{quiz && (
+			{status === "in_progress" && quiz && (
 				<>
 					<p className="text-sm text-slate-500">単語</p>
 					<p className="mt-1 text-center text-4xl font-bold text-slate-900">
@@ -145,6 +119,14 @@ export function QuizPage() {
 							次の問題へ
 						</button>
 					)}
+
+					<button
+						type="button"
+						onClick={() => stop()}
+						className="mt-6 w-full rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
+					>
+						中断する
+					</button>
 				</>
 			)}
 		</div>
